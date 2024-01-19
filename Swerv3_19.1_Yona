@@ -1,0 +1,89 @@
+from hub import light_matrix, port, motion_sensor
+import hub
+import runloop, motor, motor_pair
+
+motor_pair.unpair(1)
+motor_pair.pair(1,port.E,port.F)
+async def main():
+    motion_sensor.reset_yaw(0)
+    motor.reset_relative_position(port.F,0)
+    motor.reset_relative_position(port.C,0)
+    # write your code here
+    def closest(angle,wheelsOrGyro=True):
+        goTo=0
+        if wheelsOrGyro:
+            goTo_1=angle-(motion_sensor.tilt_angles()[0]%360)
+            goTo_2=(angle-(motion_sensor.tilt_angles()[0]%360))+360
+            goTo_3=(angle-(motion_sensor.tilt_angles()[0]%360))- 360
+            if abs(goTo_1)<abs(goTo_2) and abs(goTo_1)<abs(goTo_3):
+                goTo=goTo_1
+            elif abs(goTo_2)<abs(goTo_1) and abs(goTo_2)<abs(goTo_3):
+                goTo=goTo_2
+            elif abs(goTo_3)<abs(goTo_1) and abs(goTo_3)<abs(goTo_2):
+                goTo=goTo_3
+        else:
+            goTo_1=angle-(motor.absolute_position(port.C)%360)
+            goTo_2=(angle-(motor.absolute_position(port.C)%360))+360
+            goTo_3=(angle-(motor.absolute_position(port.C)%360))- 360
+            if abs(goTo_1)<abs(goTo_2) and abs(goTo_1)<abs(goTo_3):
+                goTo=goTo_1
+            elif abs(goTo_2)<abs(goTo_1) and abs(goTo_2)<abs(goTo_3):
+                goTo=goTo_2
+            elif abs(goTo_3)<abs(goTo_1) and abs(goTo_3)<abs(goTo_2):
+                goTo=goTo_3
+        return int(goTo)
+    
+    def sivov(angle, speed): #מתחיל פונקציה של סיבוב הגלגל
+        motor.reset_relative_position(port.C,0)
+        wheelAngle=int(angle*1.4)
+        wheelSpeed = int((speed*2.44)*-1.42) #חישוב של התנגדות הגלגלים
+        motor_pair.move_tank(1,-1*wheelSpeed,wheelSpeed,acceleration=1000)
+        while abs(motor.relative_position(port.C))<abs(wheelAngle): # לולאה שואלת את הרובוט אם הוא סיים להסתובב במעלות אמיתיות
+            motor.run_for_degrees(port.C,2,speed*5,stop=motor.CONTINUE,acceleration=1000, deceleration=1000)
+        motor.stop(port.C,stop=motor.SMART_BRAKE)
+        motor_pair.stop(1,stop=motor.SMART_BRAKE)
+
+    def sivovLe(speed, angle):
+        goTo=closest(angle,False)
+        if angle-(motor.absolute_position(port.C)%360) != 0 :
+            speed*=int(goTo/abs(goTo))
+            print(motor.absolute_position(port.C)%360,goTo,motor.absolute_position(port.C),speed)
+            sivov(abs(goTo),speed), print(motor.absolute_position(port.C))
+
+    async def turnTo(speed, angle):
+        motion_sensor.reset_yaw(0)
+        tspeed = int(speed*3.6)
+        while abs(motion_sensor.tilt_angles()[0]/10)<=angle:
+            print(abs(motion_sensor.tilt_angles()[0]/10),motion_sensor.tilt_angles()[0])
+            await motor_pair.move_tank_for_degrees(1,10,tspeed*-1,tspeed,stop=motor.CONTINUE,acceleration=900, deceleration=500)
+        motor_pair.stop(1,stop=motor.SMART_BRAKE)
+
+    async def nesiaWheelStright(distance, speed, angle): #מתחיל פונקציה של נסיע רגילה
+        x=1
+        motor.reset_relative_position(port.C,0)
+        motion_sensor.reset_yaw(0)
+        sivovLe(20,angle)
+        while x<=distance: #לולאה שואלת את הרובוט אם הוא כמות המעלות שהוא עבר גדול או שווה לכמות המרחק במעלות
+            error=int(0-motion_sensor.tilt_angles()[0]/10)
+            await nesiaStright(1,speed,angle)
+            print(x)
+            if error != 0:
+                motor.run_for_degrees(port.C,error,-20*int(error/abs(error)))
+            x+=1
+        motor_pair.stop(1, stop=motor.SMART_BRAKE)
+
+    async def nesiaStright(distance, speed, angle): #מתחיל פונקציה של נסיע רגילה
+        x=1
+        tspeed=int(speed*3.6) #חישוב של המהירות האמיתית
+        while x<=distance: #לולאה שואלת את הרובוט אם הוא כמות המעלות שהוא עבר גדול או שווה לכמות המרחק במעלות
+            error=closest(angle)
+            print(motion_sensor.tilt_angles()[0]/10, error,motion_sensor.acceleration(False)[1])
+            await motor_pair.move_tank_for_degrees(1,28,tspeed+error,tspeed-(error),stop=motor.CONTINUE,acceleration=1000, deceleration=1000)
+            x+=1
+        motor_pair.stop(1, stop=motor.SMART_BRAKE)
+
+    await nesiaWheelStright(10,100,motor.absolute_position(port.C)%360)
+    #sivov(90,20)
+
+
+runloop.run(main())
