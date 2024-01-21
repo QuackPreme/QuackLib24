@@ -1,0 +1,73 @@
+from hub import light_matrix, motion_sensor, port
+import runloop ,motor_pair,motor, hub
+
+motor_pair.unpair(1)
+motor_pair.pair(1,port.B,port.D)
+async def main():
+    # write your code here
+    def closest(angle,wheelsOrGyro=True):
+        goTo=0
+        if wheelsOrGyro:
+            goTo_1=angle-((motion_sensor.tilt_angles()[0]/10)%360)
+            goTo_2=(angle-((motion_sensor.tilt_angles()[0]/10)%360))+360
+            goTo_3=(angle-((motion_sensor.tilt_angles()[0]/10)%360))- 360
+            if abs(goTo_1)<abs(goTo_2) and abs(goTo_1)<abs(goTo_3):
+                goTo=goTo_1
+            elif abs(goTo_2)<abs(goTo_1) and abs(goTo_2)<abs(goTo_3):
+                goTo=goTo_2
+            elif abs(goTo_3)<abs(goTo_1) and abs(goTo_3)<abs(goTo_2):
+                goTo=goTo_3
+        else:
+            goTo_1=angle-(motor.absolute_position(port.C)%360)
+            goTo_2=(angle-(motor.absolute_position(port.C)%360))+360
+            goTo_3=(angle-(motor.absolute_position(port.C)%360))- 360
+            if abs(goTo_1)<abs(goTo_2) and abs(goTo_1)<abs(goTo_3):
+                goTo=goTo_1
+            elif abs(goTo_2)<abs(goTo_1) and abs(goTo_2)<abs(goTo_3):
+                goTo=goTo_2
+            elif abs(goTo_3)<abs(goTo_1) and abs(goTo_3)<abs(goTo_2):
+                goTo=goTo_3
+        return int(goTo)
+
+    async def larotz(distance, speed):
+        motor.reset_relative_position(port.B,0)
+        KP=1.4
+        KI=1.1
+        PD=1.00312
+        startingAngle=(motion_sensor.tilt_angles()[0]/10)
+        #motion_sensor.reset_yaw(0)
+        tspeed=int(speed*3.6)
+        while abs(motor.relative_position(port.B))<distance*10:
+            error=int(((startingAngle-(motion_sensor.tilt_angles()[0]/10)*KP)*KI)*PD)
+            motor_pair.move_tank(1,tspeed-(error),tspeed+error,acceleration=600)
+        motor_pair.stop(1,stop=motor.SMART_BRAKE)
+
+    async def turn(angle,speed):
+        motor.reset_relative_position(port.B,0)
+        KP=1.2
+        KI=1.1
+        PD=0.9312
+        tspeed = int((((speed*3.6)*KP)*KI)*PD)
+        while abs(motor.relative_position(port.B))<=angle*1.5:
+            motor_pair.move_tank(1,tspeed,tspeed*-1)
+        motor_pair.stop(1, stop=motor.BRAKE)
+
+    async def turnTo(angle,speed):
+        goTo=closest(angle)
+        print(goTo)
+        if abs(goTo)>0:
+            await turn(abs(goTo),int(speed*(goTo/abs(goTo))))
+
+    #await turnTo(90,40)
+    #await larotz(10,100)
+    await turnTo(90,30)
+    await turnTo(0,-30)
+    '''await turn(90,-30)
+    await larotz(30,50)
+    await turn(90,-30)
+    await larotz(30,50)
+    await turn(90,-30)
+    await larotz(30,50)
+    await turn(180,30)'''
+
+runloop.run(main())
