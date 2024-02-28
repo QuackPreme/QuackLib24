@@ -1,0 +1,12 @@
+  async def keshet(distance, speed,a):
+        motor.reset_relative_position(port.E,0)
+        wheelSpeed=int(speed*6.6)
+        keshetSpeed=0
+        while abs(motor.relative_position(port.E))<distance*28:
+            while abs(wheelSpeed)>abs(keshetSpeed):
+                keshetSpeed= int(a*(motor.relative_position(port.F)*motor.relative_position(port.F)))
+            if wheelSpeed>0:
+                motor_pair.move_tank(1,wheelSpeed,wheelSpeed+keshetSpeed)
+            else:
+                motor_pair.move_tank(1,-1*wheelSpeed+keshetSpeed,-1*wheelSpeed)
+        motor_pair.stop(1, stop=motor.BRAKE)
