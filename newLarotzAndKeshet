@@ -1,0 +1,66 @@
+from hub import light_matrix, motion_sensor, port, button, light
+import runloop ,motor_pair,motor, hub, device, color_sensor, color
+
+motor_pair.unpair(1)
+motor_pair.pair(1,port.B,port.E)
+soferDegrees=0
+async def main():
+    # write your code here
+    motion_sensor.reset_yaw(0)
+    def closest(angle,wheelsOrGyro=True): #code
+        goTo=0
+        if wheelsOrGyro:
+            goTo_1=angle-((motion_sensor.tilt_angles()[0]/10)%360)
+            goTo_2=(angle-((motion_sensor.tilt_angles()[0]/10)%360))+360
+            goTo_3=(angle-((motion_sensor.tilt_angles()[0]/10)%360))- 360
+            if abs(goTo_1)<abs(goTo_2) and abs(goTo_1)<abs(goTo_3):
+                goTo=goTo_1
+            elif abs(goTo_2)<abs(goTo_1) and abs(goTo_2)<abs(goTo_3):
+                goTo=goTo_2
+            elif abs(goTo_3)<abs(goTo_1) and abs(goTo_3)<abs(goTo_2):
+                goTo=goTo_3
+        else:
+            goTo_1=angle-(motor.absolute_position(port.C)%360)
+            goTo_2=(angle-(motor.absolute_position(port.C)%360))+360
+            goTo_3=(angle-(motor.absolute_position(port.C)%360))- 360
+            if abs(goTo_1)<abs(goTo_2) and abs(goTo_1)<abs(goTo_3):
+                goTo=goTo_1
+            elif abs(goTo_2)<abs(goTo_1) and abs(goTo_2)<abs(goTo_3):
+                goTo=goTo_2
+            elif abs(goTo_3)<abs(goTo_1) and abs(goTo_3)<abs(goTo_2):
+                goTo=goTo_3
+        return int(goTo)
+
+    def larotz(distance, speed):
+        initAngle = motion_sensor.tilt_angles()[0]/10
+        Wspeed = int(speed * 6.6)
+        KP = 2
+        print(initAngle)
+        motor.reset_relative_position(port.B,0)
+        motor.reset_relative_position(port.E,0)
+        while motor.relative_position(port.E) < distance * 28 and motor.relative_position(port.B) < distance * 28:
+            error = closest(initAngle) * KP
+            motor_pair.move_tank(1,Wspeed-error,Wspeed+error, acceleration=750)
+        print(initAngle)
+        motor_pair.stop(1)
+
+    def keshet(distance, speed,a=2):
+        motor.reset_relative_position(port.E,0)
+        wheelSpeed=int(speed*6.6)
+        while abs(motor.relative_position(port.E))<distance*28:
+            if a>0:
+                motor_pair.move_tank(1,wheelSpeed,wheelSpeed*a)
+            else:
+                motor_pair.move_tank(1,a*wheelSpeed,-1*wheelSpeed)
+        motor_pair.stop(1, stop=motor.BRAKE)
+
+    #larotz(20, 100)
+    keshet(15,60)
+    await runloop.sleep_ms(500)
+    keshet(15,60,-2)
+    await runloop.sleep_ms(500)
+    keshet(15,-60)
+    await runloop.sleep_ms(500)
+    keshet(15,-60,-2)
+
+runloop.run(main())
