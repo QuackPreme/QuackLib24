@@ -1,0 +1,104 @@
+from hub import light_matrix, motion_sensor, port, button, light
+import runloop ,motor_pair,motor, hub, device, color_sensor, color
+
+motor_pair.unpair(1)
+motor_pair.pair(1,port.B,port.E)
+
+smolWheel = port.B
+yaminWheel = port.E
+smolMotor = port.F
+yaminMotor = port.A
+
+tzevaSensor = port.C
+
+wheelKoter = 28
+'''async def robot():
+    def work(Tov=False):
+        print("כפרה אליך אני עובד כמו אל יווני")'''
+
+
+async def main():
+    def closest(angle): #code
+        goTo=0 # אם אנחנו נמצאים כבר בזווית שבדקנו התוכנה תחזיר 0
+        goTo_1=angle-((motion_sensor.tilt_angles()[0]/10)%360) # מחשב את שלושת הדרכים האפשריות 
+        goTo_2=(angle-((motion_sensor.tilt_angles()[0]/10)%360))+360 
+        goTo_3=(angle-((motion_sensor.tilt_angles()[0]/10)%360))- 360
+        if abs(goTo_1)<abs(goTo_2) and abs(goTo_1)<abs(goTo_3): # בודק איזה דרך היא הכי קצרה
+            goTo=goTo_1
+        elif abs(goTo_2)<abs(goTo_1) and abs(goTo_2)<abs(goTo_3):
+            goTo=goTo_2
+        elif abs(goTo_3)<abs(goTo_1) and abs(goTo_3)<abs(goTo_2):
+            goTo=goTo_3
+        return int(goTo) # מחזיר את הדרך הכי קצרה
+
+    def turnMhalot(angle,speed): # od code
+
+        initAngle = motion_sensor.tilt_angles()[0]/10 # הזווית שבה אנחנו מתחילים
+        wantedAngle = initAngle + angle # הזווית שבה אנחנו רוצים לסיים
+
+        if wantedAngle > initAngle: # בודק אם הסיבוב יהיה עם כיוון השעון או נגד כיוון השעון
+            while motion_sensor.tilt_angles()[0]/10 < wantedAngle: # כל עוד הזווית שאנחנו נמצאים בה עכשיו קטנה מזווית המתרה
+                motor_pair.move_tank(1,-speed,speed) # תסתובב
+        else:
+            while motion_sensor.tilt_angles()[0]/10 > wantedAngle: # כל עוד הזווית שאנחנו נמצאים בה עכשיו גדולה מזווית המתרה
+                motor_pair.move_tank(1,speed,-speed) # תבתובב
+                
+        motor_pair.stop(1) # אחרי שסיימנו להסתובב תעצור את המנועים
+
+    def sivovLe(targetAngle,speed):
+        goTo = closest(targetAngle) # מחזיר את הדרך הכי קצרה
+
+        while abs(goTo) > 0: # כל עוד אנחנו לא במרחק 0 מזווית המתרה תסתובב
+            newSpeed = int(speed*(abs(goTo)/goTo)) # מחשב את הכיוון הסיבוב
+            motor_pair.move_tank(1,newSpeed,newSpeed*-1) 
+            goTo = closest(targetAngle) # מאדקן את המרחק שנישר להסתובב
+
+        motor_pair.stop(1) # עוצר
+
+    def keshetNew(distance, speed,a=2):
+        #מרסת את המנועים ומחשב את המהירות
+        motor.reset_relative_position(yaminWheel,0)
+        motor.reset_relative_position(smolWheel,0)
+        wheelSpeed=int(speed*6.6)
+
+        #אם הקשת נושעת אחורה או קדימה וימינה או שמולה
+        if a>0:
+            while abs(motor.relative_position(yaminWheel))<distance * wheelKoter:
+                motor_pair.move_tank(1,wheelSpeed,wheelSpeed*a) #מגביר את המהירות של אחד הגלגלים כדי לשלות בקשת
+        else:
+            while abs(motor.relative_position(smolWheel)) < distance * wheelKoter:
+                motor_pair.move_tank(1,a*wheelSpeed,-1*wheelSpeed)
+
+        motor_pair.stop(1, stop=motor.BRAKE) # עוצר
+
+    def larotz(distance, speed):
+        #מסיג את הזווית ההתחלתית ומרסת את הכל
+        initAngle = motion_sensor.tilt_angles()[0]/10
+        Wspeed = int(speed * 6.6)
+        KP = 2
+        motor.reset_relative_position(smolWheel,0)
+        motor.reset_relative_position(yaminWheel,0)
+        # בודק אם יש עוד מרחק לזוז
+        while motor.relative_position(yaminWheel) < distance * wheelKoter and motor.relative_position(smolWheel) < distance * wheelKoter:
+            error = closest(initAngle) * KP # מחשב את הטעות בנסיע
+            motor_pair.move_tank(1,Wspeed-error,Wspeed+error, acceleration=750) # מתקן ונוסע 
+
+        motor_pair.stop(1)
+
+
+    turnMhalot(-90,100)
+    turnMhalot(90,100)
+    await runloop.sleep_ms(1000)
+    sivovLe(270,100)
+    larotz(20,165)
+    await runloop.sleep_ms(500)
+    larotz(20,-165)
+    await runloop.sleep_ms(1000)
+    keshetNew(30,70)
+    keshetNew(30,-70)
+    await runloop.sleep_ms(1000)
+    keshetNew(30,-70,-2)
+    keshetNew(30,70,-2)
+    print(motion_sensor.tilt_angles()[0])
+    
+runloop.run(main())
